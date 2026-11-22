@@ -36,7 +36,15 @@ npm install
 npm run dev
 ```
 
-Then open http://localhost:5173. Build for production with `npm run build` (output in `dist/`).
+Then open http://localhost:5173.
+
+### Open it on your phone / other devices
+```bash
+npm run dev:host
+```
+Vite prints a `Network:` URL (e.g. `http://192.168.1.20:5173`) — open that on any device on the same Wi-Fi.
+If it doesn't load, allow port 5173 through your computer's firewall.
+For a production build on the network: `npm run build && npm run preview:host` (port 4173). Build for production with `npm run build` (output in `dist/`).
 
 The first photo you add downloads the AI models (~45 MB for background removal and ~90 MB for categorisation). They are cached by the browser, so later photos are processed quickly, and offline.
 

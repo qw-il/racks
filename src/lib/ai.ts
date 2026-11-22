@@ -1,3 +1,4 @@
+import { uid } from './store'
 import type { Category } from './types'
 
 export interface ProcessResult {
@@ -36,7 +37,7 @@ function getWorker() {
 let queue: Promise<unknown> = Promise.resolve()
 export function processPhoto(blob: Blob, opts: { removeBg: boolean }, onStatus: Listener): Promise<ProcessResult> {
   const run = () => {
-    const id = crypto.randomUUID()
+    const id = uid()
     return new Promise<ProcessResult>((resolve, reject) => {
       pending.set(id, { resolve, reject, onStatus })
       getWorker().postMessage({ id, blob, removeBg: opts.removeBg })
