@@ -8,7 +8,7 @@ import { CATEGORIES } from '../lib/categories'
 import { isoDate, useStore, wearCounts } from '../lib/store'
 import type { Category, Item } from '../lib/types'
 import { loadSampleWardrobe } from '../lib/samples'
-import { describeItem, dismissUpload, importPhotos } from '../lib/uploads'
+import { describeItem, dismissUpload, importPhotos, retryUpload, type ImportCallbacks } from '../lib/uploads'
 
 type Filter = Category | 'all' | 'favorites'
 type Sort = 'recent' | 'most' | 'least'
@@ -51,24 +51,39 @@ export function WardrobeView() {
     return list
   }, [items, filter, query, sort, counts])
 
+  const callbacks: ImportCallbacks = {
+    onFallback: (reason) =>
+      toast({ text: `Using basic mode — ${reason.replace(/^AI /, 'AI ')}. You can still edit categories.` }),
+  }
+
   const onFiles = async (files: FileList | null) => {
     if (!files?.length) return
     const list = [...files]
-    if (list.length === 1) {
-      importPhotos(list, { removeBg }, (item: Item) =>
-        toast({
-          text: (
-            <>
-              Added <b className="font-semibold">{item.name}</b> to {describeItem(item).split(' · ')[1]}
-            </>
-          ),
-          action: { label: 'Edit', onClick: () => setOpenId(item.id) },
-        }),
-      )
-    } else {
-      let added = 0
-      await importPhotos(list, { removeBg }, () => added++)
-      if (added) toast({ text: `Added ${added} pieces and sorted them into categories` })
+    try {
+      if (list.length === 1) {
+        const { skipped } = importPhotos(list, { removeBg }, {
+          ...callbacks,
+          onAdded: (item: Item) =>
+            toast({
+              text: (
+                <>
+                  Added <b className="font-semibold">{item.name}</b> to {describeItem(item).split(' · ')[1]}
+                </>
+              ),
+              action: { label: 'Edit', onClick: () => setOpenId(item.id) },
+            }),
+        })
+        if (skipped) toast({ text: 'That file isn’t an image — try a JPEG or PNG photo' })
+      } else {
+        let added = 0
+        const { skipped, done } = importPhotos(list, { removeBg }, { ...callbacks, onAdded: () => added++ })
+        if (skipped) toast({ text: `Skipped ${skipped} file${skipped > 1 ? 's' : ''} that ${skipped > 1 ? 'aren’t images' : 'isn’t an image'}` })
+        await done
+        if (added) toast({ text: `Added ${added} piece${added > 1 ? 's' : ''} and sorted ${added > 1 ? 'them' : 'it'} into categories` })
+      }
+    } catch (e) {
+      console.error('[racks] import failed', e)
+      toast({ text: `Upload failed: ${e instanceof Error ? e.message : e}` })
     }
   }
 
@@ -102,8 +117,8 @@ export function WardrobeView() {
         onFiles(e.dataTransfer.files)
       }}
     >
-      <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => (onFiles(e.target.files), (e.target.value = ''))} />
-      <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => (onFiles(e.target.files), (e.target.value = ''))} />
+      <input ref={fileRef} type="file" accept="image/*,.heic,.heif" multiple hidden onChange={(e) => (onFiles(e.target.files), (e.target.value = ''))} />
+      <input ref={camRef} type="file" accept="image/*,.heic,.heif" capture="environment" hidden onChange={(e) => (onFiles(e.target.files), (e.target.value = ''))} />
 
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -166,12 +181,23 @@ export function WardrobeView() {
               <img src={u.preview} alt="" className={cx('absolute inset-0 h-full w-full object-cover', !u.error && 'opacity-60 blur-[1px] scale-105')} />
               {!u.error && <div className="absolute inset-0 shimmer" />}
               <div className="absolute inset-x-2 bottom-2 rounded-2xl bg-surface/90 backdrop-blur-md p-2.5">
-                <div className="flex items-center gap-1.5 text-[12px] font-medium">
-                  {u.error ? <X size={13} className="text-danger" /> : <Wand2 size={13} className="animate-pulse" />}
-                  <span className="truncate">{u.error ? 'Couldn’t process photo' : u.stage}</span>
+                <div className={cx('flex gap-1.5 text-[12px] font-medium', u.error ? 'items-start' : 'items-center')}>
+                  {u.error ? <X size={13} className="text-danger shrink-0 mt-0.5" /> : <Wand2 size={13} className="animate-pulse shrink-0" />}
+                  <span className={u.error ? 'line-clamp-4' : 'line-clamp-2'} title={u.error ?? u.stage}>
+                    {u.error ?? u.stage}
+                  </span>
                 </div>
                 {u.error ? (
-                  <button onClick={() => dismissUpload(u.id)} className="mt-1 text-[12px] text-ink-2 underline cursor-pointer">Dismiss</button>
+                  <div className="mt-2 flex gap-1.5">
+                    {u.file && (
+                      <button onClick={() => retryUpload(u.id, { removeBg }, callbacks)} className="rounded-full bg-ink text-bg px-2.5 py-1 text-[11px] font-medium cursor-pointer">
+                        Retry
+                      </button>
+                    )}
+                    <button onClick={() => dismissUpload(u.id)} className="rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-medium cursor-pointer">
+                      Dismiss
+                    </button>
+                  </div>
                 ) : (
                   <div className="mt-2 h-1 rounded-full bg-line overflow-hidden">
                     <motion.div

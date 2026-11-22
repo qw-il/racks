@@ -21,6 +21,8 @@ export interface Upload {
   stage: string
   progress?: number
   error?: string
+  /** Original file, kept so a failed upload can be retried */
+  file?: File
 }
 
 let state: State = { ready: false, items: [], outfits: [], calendar: {}, images: {}, uploads: [] }

@@ -46,7 +46,13 @@ Vite prints a `Network:` URL (e.g. `http://192.168.1.20:5173`) — open that on 
 If it doesn't load, allow port 5173 through your computer's firewall.
 For a production build on the network: `npm run build && npm run preview:host` (port 4173). Build for production with `npm run build` (output in `dist/`).
 
-The first photo you add downloads the AI models (~45 MB for background removal and ~90 MB for categorisation). They are cached by the browser, so later photos are processed quickly, and offline.
+The first photo you add downloads the AI models from huggingface.co (~45 MB for background removal and ~150 MB for categorisation). No API key or account is needed. They are cached by the browser (on HTTPS or localhost), so later photos are processed quickly, even offline.
+
+### Troubleshooting uploads
+- **Stuck on "Downloading…"** — the one-time model download is ~200 MB; the card shows the progress. If nothing arrives for 60 s, the app falls back to basic mode automatically.
+- **"Using basic mode — couldn't download the AI model"** — huggingface.co is blocked (ad-blocker, firewall, school/work network). Pieces are still added, with a simpler background cut-out and a shape-based category guess you can correct.
+- **"This browser can't read HEIC photos"** — iPhone photos on Windows. On the iPhone choose Settings → Camera → Formats → Most Compatible, or export as JPEG.
+- **Opening the app on another device** — make sure you're on the latest version (older versions break on plain `http://192.168…` addresses).
 
 ## Tech
 React 19 · TypeScript · Vite · Tailwind CSS v4 · Motion (animations) · Transformers.js (on-device ML) · IndexedDB via idb-keyval (storage).
