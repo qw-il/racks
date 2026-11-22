@@ -1,11 +1,13 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { Camera, Heart, ImagePlus, Search, Shirt, Sparkles, Wand2, X } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
+import { ItemCard } from '../components/ItemCard'
 import { ItemSheet } from '../components/ItemSheet'
 import { Button, Empty, Segmented, cx, useToast } from '../components/ui'
 import { CATEGORIES } from '../lib/categories'
 import { isoDate, useStore, wearCounts } from '../lib/store'
 import type { Category, Item } from '../lib/types'
+import { loadSampleWardrobe } from '../lib/samples'
 import { describeItem, dismissUpload, importPhotos } from '../lib/uploads'
 
 type Filter = Category | 'all' | 'favorites'
@@ -25,6 +27,8 @@ export function WardrobeView() {
   const [openId, setOpenId] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const [removeBg, setRemoveBg] = useState(() => localStorage.getItem('racks.removeBg') !== '0')
+  const mountedAt = useRef(Date.now())
+  const [loadingSamples, setLoadingSamples] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const camRef = useRef<HTMLInputElement>(null)
 
@@ -180,41 +184,15 @@ export function WardrobeView() {
             </motion.div>
           ))}
           {visible.map((it, i) => (
-            <motion.button
+            <ItemCard
               key={`it-${it.id}`}
-              layout
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0, transition: { delay: Math.min(i, 12) * 0.025 } }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              whileHover={{ y: -3 }}
-              whileTap={{ scale: 0.97 }}
+              item={it}
+              image={images[it.id]}
+              worn={counts[it.id] ?? 0}
+              index={i}
+              fresh={it.createdAt > mountedAt.current}
               onClick={() => setOpenId(it.id)}
-              className="group relative aspect-[4/5] rounded-3xl bg-check overflow-hidden text-left cursor-pointer"
-            >
-              {images[it.id] && (
-                <img
-                  src={images[it.id]}
-                  alt={it.name}
-                  draggable={false}
-                  className="absolute inset-x-0 top-0 bottom-12 m-auto h-[76%] w-[80%] object-contain cutout transition-transform duration-500 group-hover:scale-[1.05]"
-                />
-              )}
-              {it.favorite && (
-                <Heart size={15} className="absolute top-3 right-3 fill-danger text-danger" />
-              )}
-              {(it.confidence == null || it.confidence < 0.2) && (
-                <span className="absolute top-3 left-3 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium">Check category</span>
-              )}
-              <div className="absolute inset-x-0 bottom-0 px-3 pb-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10" style={{ background: it.color }} />
-                  <span className="truncate text-[13px] font-medium">{it.name}</span>
-                </div>
-                <div className="text-[11px] text-ink-3 mt-0.5">
-                  {counts[it.id] ? `Worn ${counts[it.id]}×` : 'Not worn yet'}
-                </div>
-              </div>
-            </motion.button>
+            />
           ))}
         </AnimatePresence>
       </motion.div>
@@ -235,6 +213,20 @@ export function WardrobeView() {
                 </Button>
               </div>
               <span className="text-xs text-ink-3">or drop images anywhere</span>
+              <button
+                disabled={loadingSamples}
+                onClick={async () => {
+                  setLoadingSamples(true)
+                  mountedAt.current = 0
+                  await loadSampleWardrobe()
+                  setLoadingSamples(false)
+                  toast({ text: 'Sample wardrobe loaded — have a play!' })
+                }}
+                className="mt-4 group flex items-center gap-2 rounded-full bg-accent-soft px-4 py-2.5 text-sm font-medium cursor-pointer hover:scale-[1.03] active:scale-95 transition-transform disabled:opacity-60"
+              >
+                <Sparkles size={15} className="group-hover:rotate-12 transition-transform" />
+                {loadingSamples ? 'Unpacking…' : 'Just exploring? Try a sample wardrobe'}
+              </button>
             </div>
           }
         />

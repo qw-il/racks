@@ -203,3 +203,54 @@ export function Empty({ icon, title, body, action }: { icon: ReactNode; title: s
     </motion.div>
   )
 }
+
+/** A little celebratory burst of confetti. Re-trigger by changing `fire` (e.g. a counter). */
+export function Burst({ fire, colors }: { fire: number; colors: string[] }) {
+  const palette = colors.length ? colors : ['#f3c6a5', '#1c1a1f', '#d4483b']
+  return (
+    <div className="pointer-events-none absolute inset-0 z-[200] grid place-items-center overflow-visible">
+      <AnimatePresence>
+        {fire > 0 &&
+          Array.from({ length: 28 }, (_, i) => {
+            const a = (i / 28) * Math.PI * 2 + Math.random() * 0.4
+            const d = 110 + Math.random() * 130
+            return (
+              <motion.span
+                key={`${fire}-${i}`}
+                className="absolute rounded-[2px]"
+                style={{ width: 7, height: i % 3 ? 11 : 7, background: palette[i % palette.length] }}
+                initial={{ x: 0, y: 0, opacity: 1, scale: 0.4, rotate: 0 }}
+                animate={{
+                  x: Math.cos(a) * d,
+                  y: [0, Math.sin(a) * d - 40, Math.sin(a) * d + 90],
+                  opacity: [1, 1, 0],
+                  scale: 1,
+                  rotate: Math.random() * 540 - 270,
+                }}
+                transition={{ duration: 1.1, ease: [0.2, 0.7, 0.3, 1] }}
+                exit={{ opacity: 0 }}
+              />
+            )
+          })}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+/** Number that counts up when it first appears or changes. */
+export function CountUp({ value }: { value: number }) {
+  const [shown, setShown] = useState(0)
+  useEffect(() => {
+    const from = shown
+    const start = performance.now()
+    let raf = 0
+    const tick = (t: number) => {
+      const k = Math.min(1, (t - start) / 700)
+      setShown(Math.round(from + (value - from) * (1 - Math.pow(1 - k, 3))))
+      if (k < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [value]) // eslint-disable-line react-hooks/exhaustive-deps
+  return <span className="tabular-nums">{shown}</span>
+}

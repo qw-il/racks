@@ -3,7 +3,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Pencil, Plus, Shirt, Sparkles,
 import { useMemo, useState } from 'react'
 import { OutfitPreview } from '../components/OutfitPreview'
 import { Button, Sheet, cx, useToast } from '../components/ui'
-import { isoDate, scheduleOutfit, unscheduleOutfit, useStore, wearCounts } from '../lib/store'
+import { isoDate, scheduleOutfit, streak, unscheduleOutfit, useStore, wearCounts } from '../lib/store'
 import { fmtDate } from './BuilderView'
 
 const WEEKDAYS = Array.from({ length: 7 }, (_, i) =>
@@ -79,7 +79,10 @@ export function CalendarView({
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-ink-3 text-sm">{stats.planned} day{stats.planned === 1 ? '' : 's'} planned this month</p>
+          <p className="text-ink-3 text-sm">
+            {stats.planned} day{stats.planned === 1 ? '' : 's'} planned this month
+            {streak(calendar) > 1 && <span className="ml-2 rounded-full bg-accent-soft text-ink px-2 py-0.5 text-xs font-medium">🔥 {streak(calendar)}-day streak</span>}
+          </p>
           <h1 className="font-display text-5xl md:text-6xl leading-none tracking-tight">Calendar</h1>
         </div>
         <div className="flex items-center gap-1">
@@ -143,7 +146,7 @@ export function CalendarView({
                       <motion.span layoutId="cal-sel" className="absolute inset-0 rounded-2xl ring-2 ring-ink z-10 pointer-events-none" />
                     )}
                     {first && (
-                      <OutfitPreview placements={first.placements} className="absolute inset-0 !h-full scale-[1.05] translate-y-[6%]" />
+                      <OutfitPreview placements={first.placements} backdrop={first.backdrop} className="absolute inset-0 !h-full !aspect-auto" />
                     )}
                     <span
                       className={cx(
@@ -210,8 +213,8 @@ export function CalendarView({
                           exit={{ opacity: 0, scale: 0.95 }}
                           className="flex gap-3 rounded-2xl bg-surface-2/70 p-2"
                         >
-                          <div className="w-24 shrink-0 rounded-xl bg-check overflow-hidden">
-                            <OutfitPreview placements={o.placements} />
+                          <div className="w-24 shrink-0 rounded-xl overflow-hidden">
+                            <OutfitPreview placements={o.placements} backdrop={o.backdrop} />
                           </div>
                           <div className="flex-1 min-w-0 py-1 flex flex-col">
                             <div className="font-medium truncate">{o.name}</div>
@@ -290,9 +293,9 @@ export function CalendarView({
                     setPickOpen(false)
                   }
                 }}
-                className={cx('rounded-2xl bg-check overflow-hidden text-left ring-2 cursor-pointer', on ? 'ring-ink' : 'ring-transparent')}
+                className={cx('rounded-2xl overflow-hidden text-left ring-2 cursor-pointer', on ? 'ring-ink' : 'ring-transparent')}
               >
-                <OutfitPreview placements={o.placements} />
+                <OutfitPreview placements={o.placements} backdrop={o.backdrop} />
                 <div className="bg-surface-2 px-3 py-2 text-sm font-medium truncate">{o.name}</div>
               </motion.button>
             )

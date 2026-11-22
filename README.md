@@ -5,6 +5,10 @@ Everything runs **in your browser**: photos never leave your device.
 
 ## Features
 
+### Today
+- A home screen with a styled outfit suggestion for the day (favouring pieces you haven't worn much and pairing brights with neutrals), one-tap "Wear this", your week at a glance, a day streak, your wardrobe's colour palette and a "Rediscover" row of forgotten pieces.
+- New here? "Try a sample wardrobe" loads 14 illustrated pieces, three looks and some calendar history so you can explore straight away.
+
 ### Digital wardrobe
 - **Add clothes** by uploading photos (multi-select or drag-and-drop) or taking a picture with your phone's camera.
 - **Automatic background removal** with an on-device AI model (`briaai/RMBG-1.4` via Transformers.js), run in a Web Worker so the UI stays smooth. Uses WebGPU when available, WebAssembly otherwise.
@@ -16,7 +20,8 @@ Everything runs **in your browser**: photos never leave your device.
 ### Outfit builder
 - Tap pieces to drop them onto a mood-board canvas; each category lands in a sensible spot (tops above bottoms, shoes at the bottom, etc.).
 - Drag to arrange, pinch or scroll-wheel to resize, rotate, and layer forward/back.
-- **Shuffle** generates a random outfit from your wardrobe.
+- **Shuffle** generates a colour-aware outfit, with pieces dropping onto the board one by one.
+- Pick a backdrop (Studio, Blush, Sage, Sky, Lilac, Sun, Night) — it shows on the calendar too — and enjoy a little confetti when you save.
 - Save, rename, duplicate and delete looks.
 
 ### Outfit calendar

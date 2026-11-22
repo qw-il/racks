@@ -45,7 +45,7 @@ export async function importPhotos(
         const known = type in CLOTHING_TYPES
         const item: Item = {
           id,
-          name: `${colorName} ${known ? titleCase(type) : SINGULAR[res.guess?.category ?? 'tops']}`,
+          name: known && type.includes(colorName.toLowerCase()) ? titleCase(type) : `${colorName} ${known ? titleCase(type) : SINGULAR[res.guess?.category ?? 'tops']}`,
           category: res.guess?.category ?? 'tops',
           type,
           color: res.color,

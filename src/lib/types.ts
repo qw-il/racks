@@ -36,6 +36,8 @@ export interface Outfit {
   id: string
   name: string
   placements: Placement[]
+  /** Backdrop id from BACKDROPS */
+  backdrop?: string
   createdAt: number
   updatedAt: number
 }

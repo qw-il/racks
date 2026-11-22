@@ -61,6 +61,7 @@ body,
 
 body {
   background: var(--bg);
+  isolation: isolate;
   color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -131,4 +132,17 @@ input[type="color"]::-webkit-color-swatch {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+.blob {
+  animation: drift 22s ease-in-out infinite alternate;
+}
+.blob-2 {
+  animation-duration: 28s;
+  animation-direction: alternate-reverse;
+}
+@keyframes drift {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-60px, 40px) scale(1.12); }
+  100% { transform: translate(30px, -30px) scale(0.95); }
 }

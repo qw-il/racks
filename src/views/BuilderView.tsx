@@ -19,9 +19,10 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DateStrip } from '../components/DateStrip'
 import { OutfitPreview } from '../components/OutfitPreview'
-import { Button, Empty, Segmented, Sheet, cx, useToast } from '../components/ui'
+import { Burst, Button, Empty, Segmented, Sheet, cx, useToast } from '../components/ui'
 import { CATEGORIES, LAYER, SLOT } from '../lib/categories'
-import { deleteOutfit, isoDate, saveOutfit, scheduleOutfit, uid, useStore } from '../lib/store'
+import { BACKDROPS, backdropStyle, layoutFor, suggestOutfit } from '../lib/suggest'
+import { deleteOutfit, isoDate, saveOutfit, scheduleOutfit, uid, useStore, wearCounts } from '../lib/store'
 import type { Category, Item, Outfit, Placement } from '../lib/types'
 
 const SINGLE: Category[] = ['bottoms', 'shoes', 'dresses']
@@ -47,12 +48,17 @@ export function BuilderView({ intent, onDone }: { intent: BuilderIntent | null; 
   const [planOpen, setPlanOpen] = useState(false)
   const [planDate, setPlanDate] = useState(isoDate(new Date()))
   const [dirty, setDirty] = useState(false)
+  const [backdrop, setBackdrop] = useState('dots')
+  const [burst, setBurst] = useState(0)
+  const [shuffleKey, setShuffleKey] = useState(0)
+  const calendar = useStore((s) => s.calendar)
 
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
 
   const load = (o: Outfit | null) => {
     setDraftId(o?.id ?? null)
     setName(o?.name ?? '')
+    setBackdrop(o?.backdrop ?? 'dots')
     setPlacements(o ? o.placements.filter((p) => byId.has(p.itemId)) : [])
     setSelected(null)
     setDirty(false)
@@ -94,34 +100,18 @@ export function BuilderView({ intent, onDone }: { intent: BuilderIntent | null; 
     setSelected(it.id)
   }
 
+  const worn = useMemo(() => wearCounts(outfits, calendar, isoDate(new Date())).counts, [outfits, calendar])
+
   const shuffle = () => {
-    const pick = (c: Category) => {
-      const pool = items.filter((i) => i.category === c)
-      return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null
-    }
-    const chosen: Item[] = []
-    const hasDress = items.some((i) => i.category === 'dresses')
-    const hasSeparates = items.some((i) => i.category === 'tops') && items.some((i) => i.category === 'bottoms')
-    if (hasDress && (!hasSeparates || Math.random() < 0.3)) chosen.push(pick('dresses')!)
-    else {
-      const t = pick('tops'), b = pick('bottoms')
-      if (t) chosen.push(t)
-      if (b) chosen.push(b)
-    }
-    const s = pick('shoes')
-    if (s) chosen.push(s)
-    for (const [c, p] of [['outerwear', 0.45], ['bags', 0.4], ['accessories', 0.35]] as const) {
-      const x = Math.random() < p ? pick(c) : null
-      if (x) chosen.push(x)
-    }
+    const current = new Set(placements.map((p) => p.itemId))
+    const chosen = suggestOutfit(items, worn, current)
     if (!chosen.length) return
     setDraftId(null)
     setName('')
     setSelected(null)
     setDirty(true)
-    setPlacements(
-      chosen.map((it) => ({ itemId: it.id, ...SLOT[it.category], z: LAYER[it.category] * 10, rotate: 0 })),
-    )
+    setShuffleKey((k) => k + 1)
+    setPlacements(layoutFor(chosen))
   }
 
   const save = async (asNew = false) => {
@@ -132,10 +122,12 @@ export function BuilderView({ intent, onDone }: { intent: BuilderIntent | null; 
       id: existing?.id ?? uid(),
       name: name.trim() || `Look ${outfits.length + 1}`,
       placements,
+      backdrop,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     }
     await saveOutfit(o)
+    setBurst((b) => b + 1)
     setDraftId(o.id)
     setName(o.name)
     setDirty(false)
@@ -144,7 +136,7 @@ export function BuilderView({ intent, onDone }: { intent: BuilderIntent | null; 
       const d = scheduleFor
       setScheduleFor(null)
       toast({ text: `Saved and planned for ${fmtDate(d)}` })
-      onDone(d)
+      setTimeout(() => onDone(d), 700)
     } else {
       toast({ text: `Saved “${o.name}”`, action: { label: 'Plan it', onClick: () => setPlanOpen(true) } })
     }
@@ -230,7 +222,10 @@ export function BuilderView({ intent, onDone }: { intent: BuilderIntent | null; 
             </Button>
           </div>
 
+          <div className="relative">
           <Canvas
+            key={shuffleKey}
+            backdrop={backdrop}
             placements={placements}
             images={images}
             selected={selected}
@@ -238,6 +233,25 @@ export function BuilderView({ intent, onDone }: { intent: BuilderIntent | null; 
             onChange={update}
             maxZ={maxZ}
           />
+            <Burst fire={burst} colors={placements.map((p) => byId.get(p.itemId)?.color ?? '#f3c6a5')} />
+          </div>
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-xs text-ink-3 mr-1">Backdrop</span>
+              {BACKDROPS.map((b) => (
+                <button
+                  key={b.id}
+                  title={b.label}
+                  aria-label={`${b.label} backdrop`}
+                  onClick={() => (setBackdrop(b.id), setDirty(true))}
+                  className={cx(
+                    'h-6 w-6 rounded-full cursor-pointer ring-2 ring-offset-2 ring-offset-bg transition-transform hover:scale-110',
+                    b.id === 'dots' && 'bg-check',
+                    backdrop === b.id ? 'ring-ink scale-110' : 'ring-transparent',
+                  )}
+                  style={b.css ? { background: b.css } : undefined}
+                />
+              ))}
+          </div>
 
           <div className="h-12">
             <AnimatePresence mode="wait">
@@ -285,12 +299,13 @@ export function BuilderView({ intent, onDone }: { intent: BuilderIntent | null; 
                     whileTap={{ scale: 0.94 }}
                     onClick={() => add(it)}
                     className={cx(
-                      'relative aspect-square rounded-2xl bg-check grid place-items-center cursor-pointer ring-2 transition-[box-shadow]',
+                      'group relative aspect-square rounded-2xl grid place-items-center cursor-pointer ring-2 transition-[box-shadow]',
                       on ? 'ring-ink' : 'ring-transparent hover:ring-line',
                     )}
+                    style={{ background: `color-mix(in oklab, ${it.color} 18%, var(--tile))` }}
                     title={it.name}
                   >
-                    {images[it.id] && <img src={images[it.id]} alt={it.name} draggable={false} className="absolute inset-0 m-auto h-[76%] w-[76%] object-contain cutout" />}
+                    {images[it.id] && <img src={images[it.id]} alt={it.name} draggable={false} className="absolute inset-0 m-auto h-[76%] w-[76%] object-contain cutout transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3" />}
                     <AnimatePresence>
                       {on && (
                         <motion.span
@@ -338,7 +353,7 @@ export function BuilderView({ intent, onDone }: { intent: BuilderIntent | null; 
                     onClick={() => (load(o), window.scrollTo({ top: 0, behavior: 'smooth' }))}
                     className="block w-full text-left cursor-pointer"
                   >
-                    <OutfitPreview placements={o.placements} className="bg-check" />
+                    <OutfitPreview placements={o.placements} backdrop={o.backdrop} className="transition-transform duration-500 group-hover:scale-[1.04]" />
                     <div className="px-3 py-2.5">
                       <div className="truncate text-sm font-medium">{o.name}</div>
                       <div className="text-xs text-ink-3">{o.placements.length} pieces</div>
@@ -419,6 +434,7 @@ function Tool({ children, label, onClick, danger }: { children: React.ReactNode;
 
 /** The mood-board: free-form drag, with pointer capture so it works for mouse, pen and touch. */
 function Canvas({
+  backdrop,
   placements,
   images,
   selected,
@@ -426,6 +442,7 @@ function Canvas({
   onChange,
   maxZ,
 }: {
+  backdrop: string
   placements: Placement[]
   images: Record<string, string>
   selected: string | null
@@ -490,7 +507,11 @@ function Canvas({
     <div
       ref={ref}
       onPointerDown={() => onSelect(null)}
-      className="relative isolate aspect-[3/4] w-full max-w-[calc(60dvh*0.75)] lg:max-w-none mx-auto rounded-[32px] bg-check overflow-hidden shadow-soft touch-none select-none"
+      className={cx(
+        'relative isolate aspect-[3/4] w-full max-w-[calc(60dvh*0.75)] lg:max-w-none mx-auto rounded-[32px] overflow-hidden shadow-soft touch-none select-none transition-[background] duration-500',
+        !backdropStyle(backdrop) && 'bg-check',
+      )}
+      style={backdropStyle(backdrop)}
     >
       {placements.length === 0 && (
         <div className="absolute inset-0 grid place-items-center text-ink-3">
@@ -501,7 +522,7 @@ function Canvas({
         </div>
       )}
       <AnimatePresence>
-        {placements.map((p) =>
+        {placements.map((p, idx) =>
           images[p.itemId] ? (
             <div
               key={p.itemId}
@@ -519,8 +540,8 @@ function Canvas({
                 src={images[p.itemId]}
                 alt=""
                 draggable={false}
-                initial={{ opacity: 0, scale: 0.6 }}
-                animate={{ opacity: 1, scale: 1 }}
+                initial={{ opacity: 0, scale: 0.5, y: -40, rotate: -10 }}
+                animate={{ opacity: 1, scale: 1, y: 0, rotate: 0, transition: { type: 'spring', stiffness: 360, damping: 20, delay: idx * 0.07 } }}
                 exit={{ opacity: 0, scale: 0.6 }}
                 onPointerDown={(e) => onDown(e, p)}
                 onPointerMove={onMove}

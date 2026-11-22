@@ -1,26 +1,28 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { CalendarDays, Layers, Shirt } from 'lucide-react'
+import { CalendarDays, Layers, Shirt, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { ToastProvider, cx } from './components/ui'
 import { useStore } from './lib/store'
 import { BuilderView, type BuilderIntent } from './views/BuilderView'
 import { CalendarView } from './views/CalendarView'
+import { TodayView } from './views/TodayView'
 import { WardrobeView } from './views/WardrobeView'
 
-type Tab = 'wardrobe' | 'builder' | 'calendar'
+type Tab = 'today' | 'wardrobe' | 'builder' | 'calendar'
 const TABS: { id: Tab; label: string; icon: typeof Shirt }[] = [
+  { id: 'today', label: 'Today', icon: Sun },
   { id: 'wardrobe', label: 'Wardrobe', icon: Shirt },
   { id: 'builder', label: 'Outfits', icon: Layers },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
 ]
-const ORDER: Tab[] = ['wardrobe', 'builder', 'calendar']
+const ORDER: Tab[] = ['today', 'wardrobe', 'builder', 'calendar']
 
 export default function App() {
   const ready = useStore((s) => s.ready)
   const uploads = useStore((s) => s.uploads.filter((u) => !u.error).length)
   const [tab, setTabRaw] = useState<Tab>(() => {
     const h = location.hash.slice(1) as Tab
-    return ORDER.includes(h) ? h : 'wardrobe'
+    return ORDER.includes(h) ? h : 'today'
   })
   const [dir, setDir] = useState(0)
   const [intent, setIntent] = useState<BuilderIntent | null>(null)
@@ -44,6 +46,10 @@ export default function App() {
 
   return (
     <ToastProvider>
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="blob absolute -top-40 -right-32 h-[520px] w-[520px] rounded-full bg-accent-soft opacity-70 blur-3xl" />
+        <div className="blob blob-2 absolute top-1/2 -left-48 h-[460px] w-[460px] rounded-full bg-[color-mix(in_oklab,var(--accent-soft)_60%,#b9c9e6)] opacity-50 blur-3xl" />
+      </div>
       <div className="min-h-full md:pl-[92px] lg:pl-[232px]">
         {/* Sidebar (tablet / desktop) */}
         <nav className="hidden md:flex fixed inset-y-0 left-0 z-30 w-[92px] lg:w-[232px] flex-col border-r border-line bg-bg/70 backdrop-blur-xl px-3 lg:px-4 py-6">
@@ -100,6 +106,19 @@ export default function App() {
                 exit={{ opacity: 0, x: dir * -24 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 42 }}
               >
+                {tab === 'today' && (
+                  <TodayView
+                    onWardrobe={() => setTab('wardrobe')}
+                    onBuilder={(outfitId) => {
+                      setIntent({ outfitId, nonce: Date.now() })
+                      setTab('builder')
+                    }}
+                    onCalendar={(date) => {
+                      setFocusDate(date)
+                      setTab('calendar')
+                    }}
+                  />
+                )}
                 {tab === 'wardrobe' && <WardrobeView />}
                 {tab === 'builder' && (
                   <BuilderView
@@ -130,14 +149,14 @@ export default function App() {
 
         {/* Bottom tab bar (phones) */}
         <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 px-4 pb-[max(12px,env(safe-area-inset-bottom))]">
-          <div className="mx-auto max-w-sm flex items-center justify-around gap-1 rounded-full bg-surface/85 backdrop-blur-xl shadow-soft ring-1 ring-line p-1.5">
+          <div className="mx-auto max-w-md flex items-center justify-around gap-1 rounded-full bg-surface/85 backdrop-blur-xl shadow-soft ring-1 ring-line p-1.5">
             {TABS.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={cx(
-                  'relative flex-1 flex items-center justify-center gap-1.5 h-12 rounded-full text-[13px] font-medium cursor-pointer transition-colors',
-                  tab === t.id ? 'text-accent-ink' : 'text-ink-2',
+                  'relative flex items-center justify-center gap-1.5 h-12 rounded-full text-[13px] font-medium cursor-pointer transition-[color,flex-grow] duration-300',
+                  tab === t.id ? 'text-accent-ink flex-[1.9] px-3' : 'text-ink-2 flex-1',
                 )}
               >
                 {tab === t.id && <motion.span layoutId="nav-bottom" className="absolute inset-0 rounded-full bg-accent" />}

@@ -144,3 +144,15 @@ export function isoDate(d: Date) {
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
 }
+
+/** Consecutive days (ending today, or yesterday if today isn't logged yet) with an outfit. */
+export function streak(calendar: Calendar) {
+  const d = new Date()
+  if (!calendar[isoDate(d)]?.length) d.setDate(d.getDate() - 1)
+  let n = 0
+  while (calendar[isoDate(d)]?.length) {
+    n++
+    d.setDate(d.getDate() - 1)
+  }
+  return n
+}
